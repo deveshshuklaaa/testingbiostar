@@ -1,23 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:id="@+id/dashboardTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="BIOSTAR DASHBOARD"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="32dp"/>
-
-    <Button
-        android:id="@+id/logoutBtn"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Logout"/>
-</LinearLayout>
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="BIOSTAR Dashboard"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- SENSOR VALUES -->
+        <TextView
+            android:id="@+id/co2Value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CO₂: -- ppm"/>
+
+        <TextView
+            android:id="@+id/tempValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Temperature: -- °C"/>
+
+        <TextView
+            android:id="@+id/humidityValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Humidity: -- %"/>
+
+        <TextView
+            android:id="@+id/pm25Value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="PM2.5: -- µg/m³"/>
+
+        <TextView
+            android:id="@+id/mq135Value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="MQ135: --"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- FAN CONTROL -->
+        <TextView
+            android:id="@+id/fanValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Fan Speed: 0 %"
+            android:textStyle="bold"/>
+
+        <SeekBar
+            android:id="@+id/fanSeekBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100"
+            android:progress="0"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- LOGOUT -->
+        <Button
+            android:id="@+id/logoutBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Logout"/>
+
+    </LinearLayout>
+</ScrollView>
