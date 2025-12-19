@@ -25,26 +25,34 @@ class DashboardActivity : AppCompatActivity() {
 
     private var isAutoMode = false
 
-    // UI Components
+    // UI
     private lateinit var fanSeekBar: SeekBar
     private lateinit var co2Chart: LineChart
     private lateinit var pm25Chart: LineChart
     private lateinit var airQualityStatus: TextView
 
-    // Chart data history
+    // Chart history
     private val co2History = LinkedList<Entry>()
     private val pm25History = LinkedList<Entry>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        auth = FirebaseAuth.getInstance()
+        if (auth.currentUser == null) {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+            return
+        }
+
         setContentView(R.layout.activity_dashboard)
 
-        // Firebase setup
-        auth = FirebaseAuth.getInstance()
-        deviceRef = FirebaseDatabase.getInstance().getReference("biostar/devices/device_001")
+        deviceRef = FirebaseDatabase
+            .getInstance()
+            .getReference("biostar/devices/device_001")
+
         commandsRef = deviceRef.child("commands")
 
-        // Initialize UI, Charts, and Listeners
         setupUI()
         setupCharts()
         setupFirebaseListeners()
@@ -59,160 +67,167 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     private fun setupCharts() {
-        initChart(co2Chart, "CO2 Readings")
-        initChart(pm25Chart, "PM2.5 Readings")
+        initChart(co2Chart, "CO₂ (ppm)")
+        initChart(pm25Chart, "PM2.5 (µg/m³)")
     }
 
+    // =====================================================
+    // 🔥 FIREBASE LISTENERS (SEPARATED PROPERLY)
+    // =====================================================
     private fun setupFirebaseListeners() {
-        // Device Status & Last Seen Listener
-        deviceRef.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val status = snapshot.child("status").getValue(String::class.java)
-                val lastSeenTimestamp = snapshot.child("lastSeen").getValue(Long::class.java)
 
-                findViewById<TextView>(R.id.deviceStatus).apply {
-                    text = "Device Status: ${status ?: "Unknown"}"
-                    setTextColor(if (status == "ONLINE") Color.GREEN else Color.RED)
-                }
-                findViewById<TextView>(R.id.lastSeen).text = "Last Seen: ${formatTimestamp(lastSeenTimestamp)}"
-            }
-            override fun onCancelled(error: DatabaseError) {
-                findViewById<TextView>(R.id.deviceStatus).apply {
-                    text = "Device Status: Error"
-                    setTextColor(Color.RED)
-                }
-            }
-        })
+        // -------- SENSOR LISTENER (ONLY sensors + graphs) --------
+        deviceRef.child("sensors")
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
 
-        // Sensor Data Listener
-        deviceRef.child("sensors").addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val co2 = snapshot.child("air/co2").getValue(Int::class.java)
-                val temp = snapshot.child("air/temperature").getValue(Double::class.java)
-                val humidity = snapshot.child("air/humidity").getValue(Int::class.java)
-                val pm25 = snapshot.child("dust/pm25").getValue(Int::class.java)
-                val mq135 = snapshot.child("gas/mq135").getValue(Int::class.java)
+                    val co2 = snapshot.child("air/co2").getValue(Int::class.java)
+                    val temp = snapshot.child("air/temperature").getValue(Double::class.java)
+                    val humidity = snapshot.child("air/humidity").getValue(Int::class.java)
+                    val pm25 = snapshot.child("dust/pm25").getValue(Int::class.java)
+                    val mq135 = snapshot.child("gas/mq135").getValue(Int::class.java)
 
-                // Update text views
-                findViewById<TextView>(R.id.co2Value).text = "CO₂: ${co2 ?: "--"} ppm"
-                findViewById<TextView>(R.id.tempValue).text = "Temperature: ${temp ?: "--"} °C"
-                findViewById<TextView>(R.id.humidityValue).text = "Humidity: ${humidity ?: "--"} %"
-                findViewById<TextView>(R.id.pm25Value).text = "PM2.5: ${pm25 ?: "--"} µg/m³"
-                findViewById<TextView>(R.id.mq135Value).text = "MQ135: ${mq135 ?: "--"}"
+                    findViewById<TextView>(R.id.co2Value).text = "CO₂: ${co2 ?: "--"} ppm"
+                    findViewById<TextView>(R.id.tempValue).text = "Temperature: ${temp ?: "--"} °C"
+                    findViewById<TextView>(R.id.humidityValue).text = "Humidity: ${humidity ?: "--"} %"
+                    findViewById<TextView>(R.id.pm25Value).text = "PM2.5: ${pm25 ?: "--"} µg/m³"
+                    findViewById<TextView>(R.id.mq135Value).text = "MQ135: ${mq135 ?: "--"}"
 
-                val overallStatus = updateAirQualityStatus(co2, pm25)
-                if (isAutoMode) {
-                    activateAutoFan(overallStatus)
+                    val overall = updateAirQualityStatus(co2, pm25)
+                    if (isAutoMode) activateAutoFan(overall)
+
+                    updateChart(co2Chart, co2History, co2?.toFloat())
+                    updateChart(pm25Chart, pm25History, pm25?.toFloat())
                 }
 
-                // Update charts with new, stable method
-                updateChart(co2Chart, co2History, co2?.toFloat())
-                updateChart(pm25Chart, pm25History, pm25?.toFloat())
-            }
-            override fun onCancelled(error: DatabaseError) { /* Handle error */ }
-        })
+                override fun onCancelled(error: DatabaseError) {}
+            })
+
+        // -------- STATUS LISTENER (NO graph here) --------
+        deviceRef.child("status")
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+
+                    val online = snapshot.child("online").getValue(String::class.java)
+                    val lastSeen = snapshot.child("lastSeen").getValue(Long::class.java)
+
+                    findViewById<TextView>(R.id.deviceStatus).apply {
+                        text = "Device Status: ${online ?: "Unknown"}"
+                        setTextColor(
+                            if (online == "ONLINE") Color.GREEN else Color.RED
+                        )
+                    }
+
+                    findViewById<TextView>(R.id.lastSeen).text =
+                        "Last Seen: ${formatTimestamp(lastSeen)}"
+                }
+
+                override fun onCancelled(error: DatabaseError) {}
+            })
     }
 
+    // =====================================================
+    // 🔧 USER INTERACTIONS
+    // =====================================================
     private fun setupInteractionListeners() {
-        // Logout Button
+
         findViewById<Button>(R.id.logoutBtn).setOnClickListener {
             auth.signOut()
-            val intent = Intent(this, LoginActivity::class.java) // Corrected from MainActivity
-            startActivity(intent)
+            startActivity(Intent(this, LoginActivity::class.java))
             finish()
         }
 
-        // Fan Mode Switch
         val fanModeSwitch = findViewById<Switch>(R.id.fanModeSwitch)
         fanModeSwitch.setOnCheckedChangeListener { _, isChecked ->
             isAutoMode = isChecked
             fanSeekBar.isEnabled = !isChecked
-            commandsRef.child("fanMode").setValue(if (isChecked) "AUTO" else "MANUAL")
-            fanModeSwitch.text = if (isChecked) "Auto Mode" else "Manual Mode"
+            commandsRef.child("fanMode")
+                .setValue(if (isChecked) "AUTO" else "MANUAL")
+            fanModeSwitch.text =
+                if (isChecked) "Auto Mode" else "Manual Mode"
         }
 
-        // Fan Speed SeekBar
-        fanSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                findViewById<TextView>(R.id.fanValue).text = "Fan Speed: $progress %"
+        fanSeekBar.setOnSeekBarChangeListener(object :
+            SeekBar.OnSeekBarChangeListener {
+
+            override fun onProgressChanged(
+                seekBar: SeekBar?,
+                progress: Int,
+                fromUser: Boolean
+            ) {
+                findViewById<TextView>(R.id.fanValue).text =
+                    "Fan Speed: $progress %"
                 if (fromUser && !isAutoMode) {
                     commandsRef.child("fanSpeed").setValue(progress)
                 }
             }
+
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
     }
 
-    // --- Helper Functions ---
-
-    private fun formatTimestamp(timestamp: Long?): String {
-        if (timestamp == null) return "--"
+    // =====================================================
+    // 🧠 HELPERS
+    // =====================================================
+    private fun formatTimestamp(ts: Long?): String {
+        if (ts == null) return "--"
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        return sdf.format(Date(timestamp))
+        return sdf.format(Date(ts))
     }
 
     private fun updateAirQualityStatus(co2: Int?, pm25: Int?): String {
-        val co2Status = if (co2 == null) "Unknown" else if (co2 > 2000) "Poor" else if (co2 > 1000) "Moderate" else "Good"
-        val pm25Status = if (pm25 == null) "Unknown" else if (pm25 > 35) "Poor" else if (pm25 > 12) "Moderate" else "Good"
-
-        val overallStatus = when {
-            co2Status == "Poor" || pm25Status == "Poor" -> "Poor"
-            co2Status == "Moderate" || pm25Status == "Moderate" -> "Moderate"
+        val status = when {
+            co2 == null || pm25 == null -> "Unknown"
+            co2 > 2000 || pm25 > 35 -> "Poor"
+            co2 > 1000 || pm25 > 12 -> "Moderate"
             else -> "Good"
         }
 
-        airQualityStatus.text = "Air Quality: $overallStatus"
+        airQualityStatus.text = "Air Quality: $status"
         airQualityStatus.setTextColor(
-            when (overallStatus) {
+            when (status) {
                 "Good" -> Color.GREEN
-                "Moderate" -> Color.parseColor("#FFA500") // Orange
+                "Moderate" -> Color.parseColor("#FFA500")
                 "Poor" -> Color.RED
                 else -> Color.GRAY
             }
         )
-        return overallStatus
+        return status
     }
 
-    private fun activateAutoFan(overallStatus: String) {
-        val fanSpeed = when (overallStatus) {
+    private fun activateAutoFan(status: String) {
+        val speed = when (status) {
             "Good" -> 0
             "Moderate" -> 50
             "Poor" -> 100
             else -> 0
         }
-        commandsRef.child("fanSpeed").setValue(fanSpeed)
-        fanSeekBar.progress = fanSpeed
+        fanSeekBar.progress = speed
+        commandsRef.child("fanSpeed").setValue(speed)
     }
 
     private fun initChart(chart: LineChart, label: String) {
         chart.description.text = label
         chart.setNoDataText("Waiting for data...")
-        chart.invalidate()
     }
 
-    private fun updateChart(chart: LineChart, history: LinkedList<Entry>, newValue: Float?) {
-        if (newValue == null) return
+    private fun updateChart(
+        chart: LineChart,
+        history: LinkedList<Entry>,
+        value: Float?
+    ) {
+        if (value == null) return
 
-        // 1. Manage the history list
-        if (history.size >= 30) {
-            history.removeFirst() // Remove the oldest entry
-        }
-        history.addLast(Entry(0f, newValue)) // Add the new entry
+        if (history.size >= 30) history.removeFirst()
+        history.add(Entry(history.size.toFloat(), value))
 
-        // 2. Re-index X values from 0 to history.size - 1
-        for ((index, entry) in history.withIndex()) {
-            entry.x = index.toFloat()
-        }
-
-        // 3. Create a fresh DataSet from the updated history
         val dataSet = LineDataSet(history, chart.description.text)
         dataSet.color = Color.CYAN
         dataSet.setDrawValues(false)
         dataSet.setDrawCircles(true)
 
-        // 4. Set the fresh data to the chart
         chart.data = LineData(dataSet)
-        chart.invalidate() // Refresh the chart
+        chart.invalidate()
     }
 }
