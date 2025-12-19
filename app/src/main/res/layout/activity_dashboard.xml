@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    tools:context=".DashboardActivity">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,6 +16,29 @@
             android:layout_height="wrap_content"
             android:text="BIOSTAR Dashboard"
             android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/deviceStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Device Status: Unknown"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp"/>
+
+        <TextView
+            android:id="@+id/lastSeen"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Last Seen: --"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/airQualityStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Air Quality: --"
             android:textStyle="bold"
             android:layout_marginBottom="16dp"/>
 
@@ -49,7 +74,31 @@
             android:text="MQ135: --"
             android:layout_marginBottom="24dp"/>
 
+        <!-- GRAPHS -->
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/co2Chart"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_marginBottom="16dp"/>
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/pm25Chart"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_marginBottom="24dp"/>
+
         <!-- FAN CONTROL -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Fan Control" />
+
+        <Switch
+            android:id="@+id/fanModeSwitch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Manual Mode" />
+
         <TextView
             android:id="@+id/fanValue"
             android:layout_width="wrap_content"
